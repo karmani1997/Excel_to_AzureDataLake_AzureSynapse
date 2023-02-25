@@ -1,0 +1,17 @@
+{
+	"name": "Task_2",
+	"properties": {
+		"content": {
+			"query": "\n-- active companies overtime\nSELECT \n    AGREED_DAY,\n    AGREED_MONTH, \n    AGREED_YEAR,\n    COUNT(DISTINCT COMPANY_ID) AS ACTIVE_COMPANIES\nFROM OPENROWSET(\n        BULK 'https://mehtabadlsgen2.dfs.core.windows.net/synapsedemo/data/user_companies.parquet/**',\n        FORMAT = 'PARQUET'\n    ) AS [result]\nWHERE HAS_AGREED_WITH_TERMS = '1' AND HAS_AGREED_WITH_TERMS_AT IS NOT NULL\nGROUP BY AGREED_YEAR, AGREED_MONTH, AGREED_DAY;\n\n",
+			"metadata": {
+				"language": "sql"
+			},
+			"currentConnection": {
+				"databaseName": "master",
+				"poolName": "Built-in"
+			},
+			"resultLimit": 5000
+		},
+		"type": "SqlQuery"
+	}
+}

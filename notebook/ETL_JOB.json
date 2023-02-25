@@ -1,0 +1,121 @@
+{
+	"name": "ETL_JOB",
+	"properties": {
+		"nbformat": 4,
+		"nbformat_minor": 2,
+		"bigDataPool": {
+			"referenceName": "ApacheDemoPool",
+			"type": "BigDataPoolReference"
+		},
+		"sessionProperties": {
+			"driverMemory": "28g",
+			"driverCores": 4,
+			"executorMemory": "28g",
+			"executorCores": 4,
+			"numExecutors": 1,
+			"runAsWorkspaceSystemIdentity": false,
+			"conf": {
+				"spark.dynamicAllocation.enabled": "true",
+				"spark.dynamicAllocation.minExecutors": "1",
+				"spark.dynamicAllocation.maxExecutors": "2",
+				"spark.autotune.trackingId": "09ac9dcd-ff85-453d-a79a-aca0500f6296"
+			}
+		},
+		"metadata": {
+			"saveOutput": true,
+			"synapse_widget": {
+				"version": "0.1"
+			},
+			"enableDebugMode": false,
+			"kernelspec": {
+				"name": "synapse_pyspark",
+				"display_name": "Synapse PySpark"
+			},
+			"language_info": {
+				"name": "python"
+			},
+			"a365ComputeOptions": {
+				"id": "/subscriptions/1bd954a6-5592-4063-9b99-67bd53b4a1d0/resourceGroups/mehtabRG/providers/Microsoft.Synapse/workspaces/mehtab-synapse/bigDataPools/ApacheDemoPool",
+				"name": "ApacheDemoPool",
+				"type": "Spark",
+				"endpoint": "https://mehtab-synapse.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/ApacheDemoPool",
+				"auth": {
+					"type": "AAD",
+					"authResource": "https://dev.azuresynapse.net",
+					"authHeader": null
+				},
+				"sparkVersion": "3.3",
+				"nodeCount": 10,
+				"cores": 4,
+				"memory": 28,
+				"extraHeader": null
+			},
+			"sessionKeepAliveTimeout": 30
+		},
+		"cells": [
+			{
+				"cell_type": "code",
+				"metadata": {
+					"collapsed": false
+				},
+				"source": [
+					"#import the libraries\n",
+					"from pyspark.sql import SparkSession\n",
+					"from pyspark.sql.types import *\n",
+					"from pyspark.sql.functions import col, year, month, dayofmonth, unix_timestamp, round, when\n",
+					"from pyspark.sql.functions import to_timestamp, unix_timestamp, from_unixtime\n",
+					"from datetime import datetime\n",
+					"\n",
+					"#Load the data \n",
+					"usercompaniesdf = spark.read.load('abfss://synapsedemo@mehtabadlsgen2.dfs.core.windows.net/user_companies.csv', format='csv', header=True)\n",
+					"userlogindf = spark.read.load('abfss://synapsedemo@mehtabadlsgen2.dfs.core.windows.net/user_login_locations.csv', format='csv', header=True)\n",
+					"\n",
+					"\n",
+					"# Transformation \n",
+					"#convert the date string column to datetime\n",
+					"usercompaniesdf = usercompaniesdf.withColumn(\"HAS_AGREED_WITH_TERMS_AT\", to_timestamp(\"HAS_AGREED_WITH_TERMS_AT\", \"dd-MMM-yy HH.mm.ss.SSSSSSSSS\"))\n",
+					"userlogindf = userlogindf.withColumn(\"CREATED_AT\", to_timestamp(\"CREATED_AT\", \"dd-MMM-yy HH.mm.ss.SSSSSSSSS\"))\n",
+					"\n",
+					"\n",
+					"usercompaniesdf = usercompaniesdf.select( \n",
+					"                                col(\"ID\"),\n",
+					"                                col(\"USER_ID\"),\n",
+					"                                  col(\"COMPANY_ID\"),\n",
+					"                                  col(\"ROLE\"),\n",
+					"                                  col(\"IS_PRIMARY\"),\n",
+					"                                  col(\"HAS_AGREED_WITH_TERMS\"),                          \n",
+					"                                  col(\"HAS_AGREED_WITH_TERMS_AT\"), \n",
+					"                                  col(\"USER_ACTIVATION_LAST_NOTIFIED_AT\")\n",
+					"                                  ) \\\n",
+					"                           .withColumn(\"AGREED_YEAR\", year(\"HAS_AGREED_WITH_TERMS_AT\")) \\\n",
+					"                           .withColumn(\"AGREED_MONTH\", month(\"HAS_AGREED_WITH_TERMS_AT\")) \\\n",
+					"                           .withColumn(\"AGREED_DAY\", dayofmonth(\"HAS_AGREED_WITH_TERMS_AT\"))\n",
+					"\n",
+					"\n",
+					"userlogindf = userlogindf.select( \n",
+					"                                col(\"ID\"),\n",
+					"                                col(\"USER_ID\"),\n",
+					"                                  col(\"COUNTRY\"),\n",
+					"                                  col(\"CITY\"),\n",
+					"                                  col(\"ZIP_CODE\"),\n",
+					"                                  col(\"LONGITUDE\"),                          \n",
+					"                                  col(\"LATITUDE\"), \n",
+					"                                  col(\"IP\"),\n",
+					"                                  col(\"CREATED_AT\")\n",
+					"                                  ) \\\n",
+					"                           .withColumn(\"CREATED_AT_YEAR\", year(\"CREATED_AT\")) \\\n",
+					"                           .withColumn(\"CREATED_AT_MONTH\", month(\"CREATED_AT\")) \\\n",
+					"                           .withColumn(\"CREATED_AT_DAY\", dayofmonth(\"CREATED_AT\"))\n",
+					"\n",
+					"\n",
+					"usercompaniesdf.write.mode(\"overwrite\").parquet(\"/data/user_companies.parquet\")\n",
+					"userlogindf.write.mode(\"overwrite\").parquet(\"/data/user_login_locations.parquet\")\n",
+					"\n",
+					"#display(userlogindf.limit(10))\n",
+					""
+				],
+				"execution_count": 16
+			}
+		]
+	}
+}

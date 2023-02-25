@@ -1,0 +1,17 @@
+{
+	"name": "Task_3",
+	"properties": {
+		"content": {
+			"query": "\n-- the potential active companies every month (all previously active companies, but which are not active any more in a month, because no user has logged in)\nWITH ACTIVE_COMANIES (AGREED_MONTH,AGREED_YEAR,COMPANY_ID,COMPANIES)\nAS (SELECT \n    AGREED_MONTH, \n    AGREED_YEAR,\n    COMPANY_ID,\n    COUNT(DISTINCT COMPANY_ID) AS COMPANIES\nFROM OPENROWSET(\n        BULK 'https://mehtabadlsgen2.dfs.core.windows.net/synapsedemo/data/user_companies.parquet/**',\n        FORMAT = 'PARQUET'\n    ) AS [result]\nWHERE HAS_AGREED_WITH_TERMS = '1' AND HAS_AGREED_WITH_TERMS_AT IS NOT NULL\nGROUP BY AGREED_YEAR,AGREED_MONTH, COMPANY_ID\n)\nSELECT AGREED_MONTH,AGREED_YEAR,COMPANY_ID\nFROM  ACTIVE_COMANIES\nWHERE COMPANIES = 1\nGROUP BY AGREED_YEAR,AGREED_MONTH,COMPANY_ID;\n",
+			"metadata": {
+				"language": "sql"
+			},
+			"currentConnection": {
+				"databaseName": "master",
+				"poolName": "Built-in"
+			},
+			"resultLimit": 5000
+		},
+		"type": "SqlQuery"
+	}
+}
