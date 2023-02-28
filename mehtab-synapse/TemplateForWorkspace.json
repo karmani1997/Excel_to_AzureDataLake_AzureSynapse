@@ -1,0 +1,351 @@
+{
+	"$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+		"workspaceName": {
+			"type": "string",
+			"metadata": "Workspace name",
+			"defaultValue": "mehtab-synapse"
+		},
+		"mehtab-synapse-WorkspaceDefaultSqlServer_connectionString": {
+			"type": "secureString",
+			"metadata": "Secure string for 'connectionString' of 'mehtab-synapse-WorkspaceDefaultSqlServer'",
+			"defaultValue": "Integrated Security=False;Encrypt=True;Connection Timeout=30;Data Source=tcp:mehtab-synapse.sql.azuresynapse.net,1433;Initial Catalog=@{linkedService().DBName}"
+		},
+		"mehtab-synapse-WorkspaceDefaultStorage_properties_typeProperties_url": {
+			"type": "string",
+			"defaultValue": "https://mehtabadlsgen2.dfs.core.windows.net"
+		}
+	},
+	"variables": {
+		"workspaceId": "[concat('Microsoft.Synapse/workspaces/', parameters('workspaceName'))]"
+	},
+	"resources": [
+		{
+			"name": "[concat(parameters('workspaceName'), '/Pipeline 1')]",
+			"type": "Microsoft.Synapse/workspaces/pipelines",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"activities": [
+					{
+						"name": "Notebook1",
+						"type": "SynapseNotebook",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"notebook": {
+								"referenceName": "ETL_JOB",
+								"type": "NotebookReference"
+							},
+							"snapshot": true,
+							"conf": {
+								"spark.dynamicAllocation.enabled": null,
+								"spark.dynamicAllocation.minExecutors": null,
+								"spark.dynamicAllocation.maxExecutors": null
+							},
+							"numExecutors": null
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {},
+					"cancelAfter": {}
+				},
+				"annotations": [],
+				"lastPublishTime": "2023-02-25T14:11:21Z"
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/notebooks/ETL_JOB')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/mehtab-synapse-WorkspaceDefaultSqlServer')]",
+			"type": "Microsoft.Synapse/workspaces/linkedServices",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"parameters": {
+					"DBName": {
+						"type": "String"
+					}
+				},
+				"annotations": [],
+				"type": "AzureSqlDW",
+				"typeProperties": {
+					"connectionString": "[parameters('mehtab-synapse-WorkspaceDefaultSqlServer_connectionString')]"
+				},
+				"connectVia": {
+					"referenceName": "AutoResolveIntegrationRuntime",
+					"type": "IntegrationRuntimeReference"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/integrationRuntimes/AutoResolveIntegrationRuntime')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/mehtab-synapse-WorkspaceDefaultStorage')]",
+			"type": "Microsoft.Synapse/workspaces/linkedServices",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"annotations": [],
+				"type": "AzureBlobFS",
+				"typeProperties": {
+					"url": "[parameters('mehtab-synapse-WorkspaceDefaultStorage_properties_typeProperties_url')]"
+				},
+				"connectVia": {
+					"referenceName": "AutoResolveIntegrationRuntime",
+					"type": "IntegrationRuntimeReference"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/integrationRuntimes/AutoResolveIntegrationRuntime')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/AutoResolveIntegrationRuntime')]",
+			"type": "Microsoft.Synapse/workspaces/integrationRuntimes",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"type": "Managed",
+				"typeProperties": {
+					"computeProperties": {
+						"location": "AutoResolve",
+						"dataFlowProperties": {
+							"computeType": "General",
+							"coreCount": 8,
+							"timeToLive": 0
+						}
+					}
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/WorkspaceSystemIdentity')]",
+			"type": "Microsoft.Synapse/workspaces/credentials",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"type": "ManagedIdentity",
+				"typeProperties": {}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/Task_1')]",
+			"type": "Microsoft.Synapse/workspaces/sqlscripts",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"content": {
+					"query": "-- active users overtime\nSELECT \n    AGREED_DAY,\n    AGREED_MONTH, \n    AGREED_YEAR,\n    COUNT(DISTINCT USER_ID) AS ACTIVE_USERS\nFROM OPENROWSET(\n        BULK 'https://mehtabadlsgen2.dfs.core.windows.net/synapsedemo/data/user_companies.parquet/**',\n        FORMAT = 'PARQUET'\n    ) AS [result]\nWHERE HAS_AGREED_WITH_TERMS = '1' AND HAS_AGREED_WITH_TERMS_AT IS NOT NULL\nGROUP BY AGREED_YEAR, AGREED_MONTH, AGREED_DAY;\n",
+					"metadata": {
+						"language": "sql"
+					},
+					"currentConnection": {
+						"databaseName": "master",
+						"poolName": "Built-in"
+					},
+					"resultLimit": 5000
+				},
+				"type": "SqlQuery"
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/Task_2')]",
+			"type": "Microsoft.Synapse/workspaces/sqlscripts",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"content": {
+					"query": "\n-- active companies overtime\nSELECT \n    AGREED_DAY,\n    AGREED_MONTH, \n    AGREED_YEAR,\n    COUNT(DISTINCT COMPANY_ID) AS ACTIVE_COMPANIES\nFROM OPENROWSET(\n        BULK 'https://mehtabadlsgen2.dfs.core.windows.net/synapsedemo/data/user_companies.parquet/**',\n        FORMAT = 'PARQUET'\n    ) AS [result]\nWHERE HAS_AGREED_WITH_TERMS = '1' AND HAS_AGREED_WITH_TERMS_AT IS NOT NULL\nGROUP BY AGREED_YEAR, AGREED_MONTH, AGREED_DAY;\n\n",
+					"metadata": {
+						"language": "sql"
+					},
+					"currentConnection": {
+						"databaseName": "master",
+						"poolName": "Built-in"
+					},
+					"resultLimit": 5000
+				},
+				"type": "SqlQuery"
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/Task_3')]",
+			"type": "Microsoft.Synapse/workspaces/sqlscripts",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"content": {
+					"query": "\n-- the potential active companies every month (all previously active companies, but which are not active any more in a month, because no user has logged in)\nWITH ACTIVE_COMANIES (AGREED_MONTH,AGREED_YEAR,COMPANY_ID,COMPANIES)\nAS (SELECT \n    AGREED_MONTH, \n    AGREED_YEAR,\n    COMPANY_ID,\n    COUNT(DISTINCT COMPANY_ID) AS COMPANIES\nFROM OPENROWSET(\n        BULK 'https://mehtabadlsgen2.dfs.core.windows.net/synapsedemo/data/user_companies.parquet/**',\n        FORMAT = 'PARQUET'\n    ) AS [result]\nWHERE HAS_AGREED_WITH_TERMS = '1' AND HAS_AGREED_WITH_TERMS_AT IS NOT NULL\nGROUP BY AGREED_YEAR,AGREED_MONTH, COMPANY_ID\n)\nSELECT AGREED_MONTH,AGREED_YEAR,COMPANY_ID\nFROM  ACTIVE_COMANIES\nWHERE COMPANIES = 1\nGROUP BY AGREED_YEAR,AGREED_MONTH,COMPANY_ID;\n",
+					"metadata": {
+						"language": "sql"
+					},
+					"currentConnection": {
+						"databaseName": "master",
+						"poolName": "Built-in"
+					},
+					"resultLimit": 5000
+				},
+				"type": "SqlQuery"
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/ETL_JOB')]",
+			"type": "Microsoft.Synapse/workspaces/notebooks",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"nbformat": 4,
+				"nbformat_minor": 2,
+				"bigDataPool": {
+					"referenceName": "ApacheDemoPool",
+					"type": "BigDataPoolReference"
+				},
+				"sessionProperties": {
+					"driverMemory": "28g",
+					"driverCores": 4,
+					"executorMemory": "28g",
+					"executorCores": 4,
+					"numExecutors": 1,
+					"runAsWorkspaceSystemIdentity": false,
+					"conf": {
+						"spark.dynamicAllocation.enabled": "true",
+						"spark.dynamicAllocation.minExecutors": "1",
+						"spark.dynamicAllocation.maxExecutors": "2",
+						"spark.autotune.trackingId": "09ac9dcd-ff85-453d-a79a-aca0500f6296"
+					}
+				},
+				"metadata": {
+					"saveOutput": true,
+					"synapse_widget": {
+						"version": "0.1"
+					},
+					"enableDebugMode": false,
+					"kernelspec": {
+						"name": "synapse_pyspark",
+						"display_name": "Synapse PySpark"
+					},
+					"language_info": {
+						"name": "python"
+					},
+					"a365ComputeOptions": {
+						"id": "/subscriptions/1bd954a6-5592-4063-9b99-67bd53b4a1d0/resourceGroups/mehtabRG/providers/Microsoft.Synapse/workspaces/mehtab-synapse/bigDataPools/ApacheDemoPool",
+						"name": "ApacheDemoPool",
+						"type": "Spark",
+						"endpoint": "https://mehtab-synapse.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/ApacheDemoPool",
+						"auth": {
+							"type": "AAD",
+							"authResource": "https://dev.azuresynapse.net",
+							"authHeader": null
+						},
+						"sparkVersion": "3.3",
+						"nodeCount": 10,
+						"cores": 4,
+						"memory": 28,
+						"extraHeader": null
+					},
+					"sessionKeepAliveTimeout": 30
+				},
+				"cells": [
+					{
+						"cell_type": "code",
+						"metadata": {
+							"collapsed": false
+						},
+						"source": [
+							"#import the libraries\n",
+							"from pyspark.sql import SparkSession\n",
+							"from pyspark.sql.types import *\n",
+							"from pyspark.sql.functions import col, year, month, dayofmonth, unix_timestamp, round, when\n",
+							"from pyspark.sql.functions import to_timestamp, unix_timestamp, from_unixtime\n",
+							"from datetime import datetime\n",
+							"\n",
+							"#Load the data \n",
+							"usercompaniesdf = spark.read.load('abfss://synapsedemo@mehtabadlsgen2.dfs.core.windows.net/user_companies.csv', format='csv', header=True)\n",
+							"userlogindf = spark.read.load('abfss://synapsedemo@mehtabadlsgen2.dfs.core.windows.net/user_login_locations.csv', format='csv', header=True)\n",
+							"\n",
+							"\n",
+							"# Transformation \n",
+							"#convert the date string column to datetime\n",
+							"usercompaniesdf = usercompaniesdf.withColumn(\"HAS_AGREED_WITH_TERMS_AT\", to_timestamp(\"HAS_AGREED_WITH_TERMS_AT\", \"dd-MMM-yy HH.mm.ss.SSSSSSSSS\"))\n",
+							"userlogindf = userlogindf.withColumn(\"CREATED_AT\", to_timestamp(\"CREATED_AT\", \"dd-MMM-yy HH.mm.ss.SSSSSSSSS\"))\n",
+							"\n",
+							"\n",
+							"usercompaniesdf = usercompaniesdf.select( \n",
+							"                                col(\"ID\"),\n",
+							"                                col(\"USER_ID\"),\n",
+							"                                  col(\"COMPANY_ID\"),\n",
+							"                                  col(\"ROLE\"),\n",
+							"                                  col(\"IS_PRIMARY\"),\n",
+							"                                  col(\"HAS_AGREED_WITH_TERMS\"),                          \n",
+							"                                  col(\"HAS_AGREED_WITH_TERMS_AT\"), \n",
+							"                                  col(\"USER_ACTIVATION_LAST_NOTIFIED_AT\")\n",
+							"                                  ) \\\n",
+							"                           .withColumn(\"AGREED_YEAR\", year(\"HAS_AGREED_WITH_TERMS_AT\")) \\\n",
+							"                           .withColumn(\"AGREED_MONTH\", month(\"HAS_AGREED_WITH_TERMS_AT\")) \\\n",
+							"                           .withColumn(\"AGREED_DAY\", dayofmonth(\"HAS_AGREED_WITH_TERMS_AT\"))\n",
+							"\n",
+							"\n",
+							"userlogindf = userlogindf.select( \n",
+							"                                col(\"ID\"),\n",
+							"                                col(\"USER_ID\"),\n",
+							"                                  col(\"COUNTRY\"),\n",
+							"                                  col(\"CITY\"),\n",
+							"                                  col(\"ZIP_CODE\"),\n",
+							"                                  col(\"LONGITUDE\"),                          \n",
+							"                                  col(\"LATITUDE\"), \n",
+							"                                  col(\"IP\"),\n",
+							"                                  col(\"CREATED_AT\")\n",
+							"                                  ) \\\n",
+							"                           .withColumn(\"CREATED_AT_YEAR\", year(\"CREATED_AT\")) \\\n",
+							"                           .withColumn(\"CREATED_AT_MONTH\", month(\"CREATED_AT\")) \\\n",
+							"                           .withColumn(\"CREATED_AT_DAY\", dayofmonth(\"CREATED_AT\"))\n",
+							"\n",
+							"\n",
+							"usercompaniesdf.write.mode(\"overwrite\").parquet(\"/data/user_companies.parquet\")\n",
+							"userlogindf.write.mode(\"overwrite\").parquet(\"/data/user_login_locations.parquet\")\n",
+							"\n",
+							"#display(userlogindf.limit(10))\n",
+							""
+						],
+						"outputs": [],
+						"execution_count": 16
+					}
+				]
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/ApacheDemoPool')]",
+			"type": "Microsoft.Synapse/workspaces/bigDataPools",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"autoPause": {
+					"enabled": true,
+					"delayInMinutes": 15
+				},
+				"autoScale": {
+					"enabled": true,
+					"maxNodeCount": 7,
+					"minNodeCount": 3
+				},
+				"nodeCount": 10,
+				"nodeSize": "Small",
+				"nodeSizeFamily": "MemoryOptimized",
+				"sparkVersion": "3.3",
+				"isComputeIsolationEnabled": false,
+				"sessionLevelPackagesEnabled": false,
+				"annotations": []
+			},
+			"dependsOn": [],
+			"location": "northeurope"
+		}
+	]
+}
